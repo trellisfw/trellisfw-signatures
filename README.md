@@ -1,15 +1,15 @@
-# fpad-audit-sign-verify #
+# fpad-signatures #
 
 Create and verify RS256 based JWT oauth-jwt-bearer client authentications.
 
 ## Installation ##
 ```shell
-npm install fpad-audit-sign-verify
+npm install fpad-signatures
 ```
 
 ## Require Usage ##
 ```javascript
-var fasv = require('fpad-audit-sign-verify');
+var fsig = require('fpad-signatures');
 ```
 
 ## API ##
