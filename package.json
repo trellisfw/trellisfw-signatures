@@ -1,0 +1,36 @@
+{
+  "name": "fpad-signatures",
+  "version": "0.1.0",
+  "description": "Generate and verify Json Web Tokens within food safety audits.",
+  "main": "fpad-signatures.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fpad/fpad-signatures.git"
+  },
+  "keywords": [
+    "fpad",
+    "oada",
+    "food",
+    "safety",
+    "food",
+    "safety",
+    "audit"
+  ],
+  "author": "Sam Noel",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/fpad/fpad-signatures/issues"
+  },
+  "homepage": "https://github.com/fpad/fpad-signatures#readme",
+  "dependencies": {
+    "bluebird": "^3.5.0",
+    "js-sha256": "^0.5.0",
+    "jsrsasign": "^7.1.2",
+    "lodash": "^4.17.4",
+    "superagent": "^3.5.2",
+    "superagent-promise": "^1.1.0"
+  }
+}
