@@ -1,6 +1,6 @@
 {
   "name": "fpad-signatures",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generate and verify Json Web Tokens within food safety audits.",
   "main": "fpad-signatures.js",
   "scripts": {
