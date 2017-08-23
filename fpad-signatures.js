@@ -149,7 +149,7 @@ function generate(inputAudit, prvJwk, headers) {
     if (inputAudit.signatures) {                                                   
       inputAudit.signatures.push(assertion);                                       
     } else inputAudit.signatures = [assertion];
-    return inputAudit;
+    return inputAudit.signatures;
   })
 }
 
