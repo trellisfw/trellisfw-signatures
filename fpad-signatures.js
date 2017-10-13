@@ -4,8 +4,8 @@ const KJUR = require('jsrsasign');
 const _ = require('lodash');
 const Promise = require('bluebird'); 
 const agent = require('superagent-promise')(require('superagent'), Promise);
-let trustedList;
-let lastTrustedListRetrieved;
+var trustedList;
+var lastTrustedListRetrieved;
 
 module.exports = {
   generate: generate,
@@ -17,21 +17,21 @@ module.exports = {
 //key if only one signature was present) should be omitted in the reconstructed hash.
 //If the hashes match, we can conclude that content hasn't been modified.
 function _isContentModified(auditIn) {
-  let audit = _.cloneDeep(auditIn);
+  var audit = _.cloneDeep(auditIn);
   if (!audit.signatures) return false
   if (audit.signatures.length === 0) return false
 
   //Get the decoded hashed audit in the signature JWT
-  let auditJwt = audit.signatures[audit.signatures.length-1]
-  let decoded = KJUR.jws.JWS.readSafeJSONString(KJUR.b64utoutf8(auditJwt.split(".")[1]));
+  var auditJwt = audit.signatures[audit.signatures.length-1]
+  var decoded = KJUR.jws.JWS.readSafeJSONString(KJUR.b64utoutf8(auditJwt.split(".")[1]));
 
   // Remove the last signature in the signatures key array for reconstruction.
   if (audit.signatures.length === 1) {
-    delete audit.signatures;
+    devare audit.signatures;
   } else audit.signatures.pop();
  
   //Serialize and hash the given audit. 
-  let reconstructedAudit = _serialize(audit);
+  var reconstructedAudit = _serialize(audit);
   reconstructedAudit = sha256(reconstructedAudit);
 
   // Now compare
@@ -41,8 +41,8 @@ function _isContentModified(auditIn) {
 // This function reconstructs the headers for verification using KJUR. KJUR wants alg to be
 // an array for some reason even though generating the JWT with alg as an array does not work. 
 function _isVerified(auditJwt, headersIn, jwk) {
-  let headers = _.cloneDeep(headersIn);
-  let pubKey = KJUR.KEYUTIL.getKey(jwk);
+  var headers = _.cloneDeep(headersIn);
+  var pubKey = KJUR.KEYUTIL.getKey(jwk);
   if (headers.alg) headers.alg = [headers.alg]
   if (headers.typ) headers.typ = [headers.typ]
   if (headers.iss) headers.iss = [headers.iss]
@@ -68,8 +68,8 @@ function _getJwkFromHeaders(headers) {
       return agent('GET', headers.jku)
       .end()
       .then((jkuRes) => {
-        let keySet = JSON.parse(jkuRes.text);
-        let jwk;
+        var keySet = JSON.parse(jkuRes.text);
+        var jwk;
         keySet.keys.forEach(function(key) {
           if (key.kid === headers.kid) {
             return key
@@ -103,8 +103,8 @@ function verify(audit) {
 // Check that a signature is present and parse out the given JWT headers
     if (!audit.signatures) throw new Error('Audit has no signatures to be verified.')
     if (audit.signatures.length === 0) throw new Error('Audit has no signatures.')
-    let auditJwt = audit.signatures[audit.signatures.length-1]
-    let headers = KJUR.jws.JWS.readSafeJSONString(KJUR.b64utoutf8(auditJwt.split(".")[0]))
+    var auditJwt = audit.signatures[audit.signatures.length-1]
+    var headers = KJUR.jws.JWS.readSafeJSONString(KJUR.b64utoutf8(auditJwt.split(".")[0]))
     if (!headers) throw new Error('Malformed signature (JWT headers couldn\'t be parsed).')
 
 // Perform verification against the trusted list.
@@ -127,7 +127,7 @@ function verify(audit) {
 function generate(inputAudit, prvJwk, headers) {
   return Promise.try(() => {
     if (!prvJwk) throw 'Private key required to sign the audit.';
-    let data = _serialize(inputAudit);
+    var data = _serialize(inputAudit);
     if (!data) throw 'Audit could not be serialized.'
     data = {hash: sha256(data)};
     if (!data) throw 'Audit could not be hashed.'
@@ -143,7 +143,7 @@ function generate(inputAudit, prvJwk, headers) {
     headers.kty = (typeof headers.kty === 'string') ? headers.kty : prvJwk.kty;
     headers.iat = Math.floor(Date.now() / 1000);
 
-    let assertion = KJUR.jws.JWS.sign(headers.alg, JSON.stringify(headers), data, KJUR.KEYUTIL.getKey(prvJwk)); 
+    var assertion = KJUR.jws.JWS.sign(headers.alg, JSON.stringify(headers), data, KJUR.KEYUTIL.getKey(prvJwk)); 
     if (!assertion) throw 'Signature could not be generated with given inputs';
 
     if (inputAudit.signatures) {                                                   
@@ -159,9 +159,9 @@ function _serialize(obj) {
   if (typeof obj === 'string') return '"'+obj+'"';
   if (typeof obj === 'boolean') return (obj ? 'true' : 'false');
   // Must be an array or object
-  let isarray = _.isArray(obj);
-  let starttoken = isarray ? '[' : '{';
-  let   endtoken = isarray ? ']' : '}';
+  var isarray = _.isArray(obj);
+  var starttoken = isarray ? '[' : '{';
+  var   endtoken = isarray ? ']' : '}';
 
   if (!obj) return 'null';
 
