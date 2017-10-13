@@ -34,5 +34,9 @@
     "lodash": "^4.17.4",
     "superagent": "^3.5.2",
     "superagent-promise": "^1.1.0"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-env": "^1.6.0"
   }
 }

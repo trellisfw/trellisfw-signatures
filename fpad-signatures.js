@@ -27,7 +27,7 @@ function _isContentModified(auditIn) {
 
   // Remove the last signature in the signatures key array for reconstruction.
   if (audit.signatures.length === 1) {
-    devare audit.signatures;
+    delete audit.signatures;
   } else audit.signatures.pop();
  
   //Serialize and hash the given audit. 
