@@ -2,7 +2,7 @@
 const sha256 = require('js-sha256');
 const KJUR = require('jsrsasign');
 const _ = require('lodash');
-const Promise = require('bluebird'); 
+const Promise = require('bluebird');
 const agent = require('superagent-promise')(require('superagent'), Promise);
 var trustedList;
 var lastTrustedListRetrieved;
@@ -29,17 +29,17 @@ function _isContentModified(auditIn) {
   if (audit.signatures.length === 1) {
     delete audit.signatures;
   } else audit.signatures.pop();
- 
-  //Serialize and hash the given audit. 
+
+  //Serialize and hash the given audit.
   var reconstructedAudit = _serialize(audit);
   reconstructedAudit = sha256(reconstructedAudit);
 
   // Now compare
-  return (decoded.hash !== reconstructedAudit) 
+  return (decoded.hash !== reconstructedAudit)
 }
 
 // This function reconstructs the headers for verification using KJUR. KJUR wants alg to be
-// an array for some reason even though generating the JWT with alg as an array does not work. 
+// an array for some reason even though generating the JWT with alg as an array does not work.
 function _isVerified(auditJwt, headersIn, jwk) {
   var headers = _.cloneDeep(headersIn);
   var pubKey = KJUR.KEYUTIL.getKey(jwk);
@@ -85,10 +85,10 @@ function _getJwkFromHeaders(headers) {
 function _fetchTrustedList() {
   return Promise.try(() => {
     if (!trustedList || (lastTrustedListRetrieved < Date.now()-864e5)) {
-      return agent('GET', 'https://raw.githubusercontent.com/fpad/trusted-list/master/keys.json')
+      return agent('GET', 'https://raw.githubusercontent.com/trellisfw/trusted-list/master/keys.json')
       .end()
       .then((res) => {
-//Set the trustedList global variables so they do not to be requested on subsequent verifications (within 24 hours)
+        //Set the trustedList global variables so they do not to be requested on subsequent verifications (within 24 hours)
         lastTrustedListRetrieved = Date.now()
         return trustedList = JSON.parse(res.text)
       })
@@ -121,8 +121,8 @@ function verify(audit) {
   })
 }
 
-//This function accepts an input audit along with the JWT headers necessary to 
-//construct a JWT and appends an additional signature to the signatures key of 
+//This function accepts an input audit along with the JWT headers necessary to
+//construct a JWT and appends an additional signature to the signatures key of
 //the audit.
 function generate(inputAudit, prvJwk, headers) {
   return Promise.try(() => {
@@ -132,7 +132,7 @@ function generate(inputAudit, prvJwk, headers) {
     data = {hash: sha256(data)};
     if (!data) throw 'Audit could not be hashed.'
 
-    if (!headers.jwk && !headers.jku) throw 'Either a public JWK key or a JKU must be included for downstream verification of the given private key.' 
+    if (!headers.jwk && !headers.jku) throw 'Either a public JWK key or a JKU must be included for downstream verification of the given private key.'
     if (headers.jku && typeof headers.jku !== 'string') throw 'JKU given, but it wasn\'t a string.'
     if (!headers.kid) throw 'KID header wasn\'t supplied.'
     if (typeof headers.kid !== 'string') throw 'KID wasn\'t a string.'
@@ -143,11 +143,11 @@ function generate(inputAudit, prvJwk, headers) {
     headers.kty = (typeof headers.kty === 'string') ? headers.kty : prvJwk.kty;
     headers.iat = Math.floor(Date.now() / 1000);
 
-    var assertion = KJUR.jws.JWS.sign(headers.alg, JSON.stringify(headers), data, KJUR.KEYUTIL.getKey(prvJwk)); 
+    var assertion = KJUR.jws.JWS.sign(headers.alg, JSON.stringify(headers), data, KJUR.KEYUTIL.getKey(prvJwk));
     if (!assertion) throw 'Signature could not be generated with given inputs';
 
-    if (inputAudit.signatures) {                                                   
-      inputAudit.signatures.push(assertion);                                       
+    if (inputAudit.signatures) {
+      inputAudit.signatures.push(assertion);
     } else inputAudit.signatures = [assertion];
     return inputAudit.signatures;
   })

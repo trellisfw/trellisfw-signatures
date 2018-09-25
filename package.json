@@ -1,19 +1,19 @@
 {
-  "name": "fpad-signatures",
+  "name": "trellisfw-signatures",
   "version": "0.1.3",
   "description": "Generate and verify Json Web Tokens within food safety audits.",
-  "main": "dist/fpad-signatures.js",
+  "main": "dist/trellisfw-signatures.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "babel fpad-signatures.js --presets babel-preset-env --out-dir dist",
+    "build": "babel trellisfw-signatures.js --presets babel-preset-env --out-dir dist",
     "prepublish": "npm run build"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fpad/fpad-signatures.git"
+    "url": "git+https://github.com/trellisfw/trellisfw-signatures.git"
   },
   "keywords": [
-    "fpad",
+    "trellisfw",
     "oada",
     "food",
     "safety",
@@ -24,9 +24,9 @@
   "author": "Sam Noel",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/fpad/fpad-signatures/issues"
+    "url": "https://github.com/trellisfw/trellisfw-signatures/issues"
   },
-  "homepage": "https://github.com/fpad/fpad-signatures#readme",
+  "homepage": "https://github.com/trellisfw/trellisfw-signatures#readme",
   "dependencies": {
     "bluebird": "^3.5.0",
     "js-sha256": "^0.5.0",
