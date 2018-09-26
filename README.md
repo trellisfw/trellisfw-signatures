@@ -1,15 +1,15 @@
-# fpad-signatures #
+# trellisfw-signatures #
 
 Create and verify RS256 based JWT oauth-jwt-bearer client authentications.
 
 ## Installation ##
 ```shell
-npm install fpad-signatures
+npm install trellisfw-signatures
 ```
 
 ## Require Usage ##
 ```javascript
-var fsig = require('fpad-signatures');
+var tSignature = require('trellisfw-signatures');
 ```
 
 ## API ##
@@ -18,7 +18,7 @@ var fsig = require('fpad-signatures');
 Generate a signed audit with the given headers and the client's private key. The `generate` function appends a Json Web Token (JWT) to the audit's `signatures`.
 
 #### Parameters ####
-`audit` *{Object}* A food safety audit per the Framework for Produce Audit Data ([FPAD]). 
+`audit` *{Object}* A food safety audit per the Trellis framework.
 
 `key` *{PEM JWK}* The key used to sign the audit. Supported key types include those supported by [kjur/jsrsasign]'s `KJUR.KEYUTIL.getKey` function. If the JWK has a `kid` property it will be
 included in the client assertion header.
@@ -28,4 +28,4 @@ included in the client assertion header.
 
 
 [kjur/jsrsasign]: https://github.com/kjur/jsrsasign
-[FPAD]: https://github.com/fpad/fpad-docs
+[trellisfw]: https://github.com/trellisfw/trellisfw-docs

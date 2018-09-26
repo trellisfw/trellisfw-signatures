@@ -1,6 +1,6 @@
 {
   "name": "@trellisfw/signatures",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Generate and verify Json Web Tokens within food safety audits.",
   "main": "dist/index.js",
   "scripts": {
@@ -13,7 +13,7 @@
     "url": "git+https://github.com/trellisfw/trellisfw-signatures.git"
   },
   "keywords": [
-    "fpad",
+    "trellisfw",
     "oada",
     "food",
     "safety",
