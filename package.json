@@ -1,6 +1,6 @@
 {
   "name": "@trellisfw/signatures",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Generate and verify Json Web Tokens within food safety audits.",
   "main": "dist/index.js",
   "scripts": {
