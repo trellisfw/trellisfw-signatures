@@ -1,11 +1,11 @@
 {
-  "name": "trellisfw-signatures",
-  "version": "0.1.3",
+  "name": "@trellisfw/signatures",
+  "version": "0.1.5",
   "description": "Generate and verify Json Web Tokens within food safety audits.",
-  "main": "dist/trellisfw-signatures.js",
+  "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "babel trellisfw-signatures.js --presets babel-preset-env --out-dir dist",
+    "build": "babel index.js --presets babel-preset-env --out-dir dist",
     "prepublish": "npm run build"
   },
   "repository": {
