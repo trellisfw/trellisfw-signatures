@@ -4,12 +4,12 @@ Create and verify RS256 based JWT oauth-jwt-bearer client authentications.
 
 ## Installation ##
 ```shell
-npm install trellisfw-signatures
+npm install @trellisfw/signatures
 ```
 
 ## Require Usage ##
 ```javascript
-var tSignature = require('trellisfw-signatures');
+var tSignature = require('@trellisfw/signatures');
 ```
 
 ## API ##
