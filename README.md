@@ -20,7 +20,7 @@ Generate a signed audit with the given headers and the client's private key. The
 #### Parameters ####
 `audit` *{Object}* A food safety audit per the Trellis framework.
 
-`key` *{PEM JWK}* The key used to sign the audit. Supported key types include those supported by [kjur/jsrsasign]'s `KJUR.KEYUTIL.getKey` function. If the JWK has a `kid` property it will be
+`key` *{PEM JWK}* The key used to sign the audit. Supported key types include those supported by [kjur/jsrsasign]'s `KJUR.KEYUTIL.getKey` or keys returned from `KJUR.KEYUTIL.getKey` already. If the JWK has a `kid` property it will be
 included in the client assertion header.
 
 `headers` *{Object}* The `headers` parameter is passed directly to

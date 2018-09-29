@@ -1,6 +1,6 @@
 {
   "name": "@trellisfw/signatures",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Generate and verify Json Web Tokens within food safety audits.",
   "main": "dist/trellisfw-signatures.js",
   "scripts": {
@@ -37,6 +37,8 @@
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",
-    "babel-preset-env": "^1.6.0"
+    "babel-preset-env": "^1.6.0",
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0"
   }
 }
