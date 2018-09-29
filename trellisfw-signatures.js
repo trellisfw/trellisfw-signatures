@@ -59,11 +59,10 @@ function _isSignerTrusted(jwkHash) {
 
 function _getJwkFromHeaders(headers) {
   return Promise.try(() => {
-//Handle JWK. The audit contained a JWK that can be directly used for verification
+    //Handle JWK. The audit contained a JWK that can be directly used for verification
     if (headers.jwk) return headers.jwk;
-
-//Handle JKU. The audit contained a JKU, which is a URL to a JWK set. An accompanying
-//KID is needed in the headers to look up the particular JWK on the JKU.
+    //Handle JKU. The audit contained a JKU, which is a URL to a JWK set. An accompanying
+    //KID is needed in the headers to look up the particular JWK on the JKU.
     else if (headers.jku) {
       return agent('GET', headers.jku)
       .end()
@@ -100,18 +99,18 @@ function _fetchTrustedList() {
 // necessary to verify itself (either JWK or JKU).
 function verify(audit) {
   return Promise.try(() => {
-// Check that a signature is present and parse out the given JWT headers
+    // Check that a signature is present and parse out the given JWT headers
     if (!audit.signatures) throw new Error('Audit has no signatures to be verified.')
     if (audit.signatures.length === 0) throw new Error('Audit has no signatures.')
     var auditJwt = audit.signatures[audit.signatures.length-1]
     var headers = KJUR.jws.JWS.readSafeJSONString(KJUR.b64utoutf8(auditJwt.split(".")[0]))
     if (!headers) throw new Error('Malformed signature (JWT headers couldn\'t be parsed).')
 
-// Perform verification against the trusted list.
+    // Perform verification against the trusted list.
     return _fetchTrustedList().then(() => {
       return _getJwkFromHeaders(headers).then((jwk) => {
         if (!jwk) throw new Error('A JWK or JKU must be included to verify the audit. A JKU requires an accompanying KID in the headers to look up the particular JWK.')
-//TODO: need some function that tests whether the JWK is generally a valid JWK thingy. The test on jwk.n is sort of doing this.
+        //TODO: need some function that tests whether the JWK is generally a valid JWK thingy. The test on jwk.n is sort of doing this.
         if (!_isSignerTrusted(jwk.n)) throw new Error('Audit signature is valid. The signer is not on the trusted list.') // Its not on the trusted list. Don't trust!
         if (!_isVerified(auditJwt, headers, jwk)) throw new Error('Audit signature cannot be verified.')
         if (_isContentModified(audit)) throw new Error('Audit signature is valid. Signer is trusted. The Audit contents have been modified.')
@@ -137,20 +136,28 @@ function generate(inputAudit, prvJwk, headers) {
     if (!headers.kid) throw 'KID header wasn\'t supplied.'
     if (typeof headers.kid !== 'string') throw 'KID wasn\'t a string.'
 
-// Defaults
+    // Defaults
     headers.alg = (typeof headers.alg === 'string') ? headers.alg : 'RSA256';
     headers.typ = (typeof headers.typ === 'string') ? headers.typ : 'JWT';
     headers.kty = (typeof headers.kty === 'string') ? headers.kty : prvJwk.kty;
     headers.iat = Math.floor(Date.now() / 1000);
 
-    var assertion = KJUR.jws.JWS.sign(headers.alg, JSON.stringify(headers), data, KJUR.KEYUTIL.getKey(prvJwk));
+    //Convert keys if necessary
+    if (!(prvJwk instanceof KJUR.RSAKey) && !(prvJwk instanceof KJUR.crypto.DSA) && !(prvJwk instanceof KJUR.crypto.ECDSA)) {
+      prvJwk = KJUR.KEYUTIL.getKey(prvJwk)
+    }
+    if (headers.jwk && !(headers.jwk instanceof KJUR.RSAKey) && !(headers.jwk instanceof KJUR.crypto.DSA) && !(headers.jwk instanceof KJUR.crypto.ECDSA)) {
+      headers.jwk = KJUR.KEYUTIL.getKey(headers.jwk)
+    }
+
+    var assertion = KJUR.jws.JWS.sign(headers.alg, JSON.stringify(headers), data, prvJwk);
     if (!assertion) throw 'Signature could not be generated with given inputs';
 
     if (inputAudit.signatures) {
       inputAudit.signatures.push(assertion);
     } else inputAudit.signatures = [assertion];
-    return inputAudit.signatures;
-  })
+      return inputAudit.signatures;
+    })
 }
 
 function _serialize(obj) {
@@ -161,7 +168,7 @@ function _serialize(obj) {
   // Must be an array or object
   var isarray = _.isArray(obj);
   var starttoken = isarray ? '[' : '{';
-  var   endtoken = isarray ? ']' : '}';
+  var endtoken = isarray ? ']' : '}';
 
   if (!obj) return 'null';
 
