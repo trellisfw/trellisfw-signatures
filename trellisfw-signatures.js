@@ -97,7 +97,7 @@ function _fetchTrustedList() {
 
 // This function verifies the given audit. The audit should contain the public key source
 // necessary to verify itself (either JWK or JKU).
-function verify(audit) {
+function verify(audit, options) {
   return Promise.try(() => {
     // Check that a signature is present and parse out the given JWT headers
     if (!audit.signatures) throw new Error('Audit has no signatures to be verified.')
@@ -105,13 +105,12 @@ function verify(audit) {
     var auditJwt = audit.signatures[audit.signatures.length-1]
     var headers = KJUR.jws.JWS.readSafeJSONString(KJUR.b64utoutf8(auditJwt.split(".")[0]))
     if (!headers) throw new Error('Malformed signature (JWT headers couldn\'t be parsed).')
-
     // Perform verification against the trusted list.
     return _fetchTrustedList().then(() => {
       return _getJwkFromHeaders(headers).then((jwk) => {
         if (!jwk) throw new Error('A JWK or JKU must be included to verify the audit. A JKU requires an accompanying KID in the headers to look up the particular JWK.')
         //TODO: need some function that tests whether the JWK is generally a valid JWK thingy. The test on jwk.n is sort of doing this.
-        if (!_isSignerTrusted(jwk.n)) throw new Error('Audit signature is valid. The signer is not on the trusted list.') // Its not on the trusted list. Don't trust!
+        if (!_isSignerTrusted(jwk.n) && !(_.get(options, 'allowUntrusted') === true)) throw new Error('Audit signature is valid. The signer is not on the trusted list.') // Its not on the trusted list. Don't trust!
         if (!_isVerified(auditJwt, headers, jwk)) throw new Error('Audit signature cannot be verified.')
         if (_isContentModified(audit)) throw new Error('Audit signature is valid. Signer is trusted. The Audit contents have been modified.')
         return true
@@ -144,7 +143,7 @@ function generate(inputAudit, prvJwk, headers) {
       //Get jwt from string
       try {
         prvJwk = KJUR.KEYUTIL.getJWKFromKey(KJUR.KEYUTIL.getKey(prvJwk));
-      } catch {
+      } catch (err) {
         throw 'A private JWK was given as a string, but could not be decoded.'
       }
     } else if (_.isObject(prvJwk)) {
@@ -166,7 +165,7 @@ function generate(inputAudit, prvJwk, headers) {
         //Get jwt from string
         try {
           headers.jwk = KJUR.KEYUTIL.getJWKFromKey(KJUR.KEYUTIL.getKey(headers.jwk));
-        } catch {
+        } catch (err) {
           throw 'A public JWK was given as a string, but could not be decoded.'
         }
       } else if (_.isObject(headers.jwk)) {
