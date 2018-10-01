@@ -136,21 +136,62 @@ function generate(inputAudit, prvJwk, headers) {
     if (!headers.kid) throw 'KID header wasn\'t supplied.'
     if (typeof headers.kid !== 'string') throw 'KID wasn\'t a string.'
 
+    //Convert prvJWK to JWK if necessary
+    if (prvJwk instanceof KJUR.RSAKey || prvJwk instanceof KJUR.crypto.ECDSA) {
+      //Get key from string or jwt
+      prvJwk = KJUR.KEYUTIL.getKey(prvJwk)
+    } else if (typeof prvJwk === 'string' || prvJwk instanceof String) {
+      //Get jwt from string
+      try {
+        prvJwk = KJUR.KEYUTIL.getJWKFromKey(KJUR.KEYUTIL.getKey(prvJwk));
+      } catch {
+        throw 'A private JWK was given as a string, but could not be decoded.'
+      }
+    } else if (_.isObject(prvJwk)) {
+      //Simple JWK validation check, could use node-jwk JWK.fromObject for this
+      //See: https://github.com/HyperBrain/node-jwk#readme
+      if (!(_.has(prvJwk, 'kty')) || !(_.includes(['RSA', 'EC'], prvJwk.kty))) {
+        throw 'A private JWK was given, but it wasn\'t a JWK, KJUR.RSAKey, KJUR.crypto.ECDSA, or string';
+      }
+    } else {
+      throw 'A private JWK was given, but it wasn\'t a JWK, KJUR.RSAKey, KJUR.crypto.ECDSA, or string';
+    }
+
+    //Convert headers.jwk to JWK if necessary
+    if (headers.jwk) {
+      if (headers.jwk instanceof KJUR.RSAKey || headers.jwk instanceof KJUR.crypto.ECDSA) {
+        //Get jwt from key
+        headers.jwk = KJUR.KEYUTIL.getJWKFromKey(headers.jwk)
+      } else if (typeof headers.jwk === 'string' || headers.jwk instanceof String) {
+        //Get jwt from string
+        try {
+          headers.jwk = KJUR.KEYUTIL.getJWKFromKey(KJUR.KEYUTIL.getKey(headers.jwk));
+        } catch {
+          throw 'A public JWK was given as a string, but could not be decoded.'
+        }
+      } else if (_.isObject(headers.jwk)) {
+        //Simple JWK validation check, could use node-jwk JWK.fromObject for this
+        //See: https://github.com/HyperBrain/node-jwk#readme
+        if (!(_.has(headers.jwk, 'kty')) || !(_.includes(['RSA', 'EC'], headers.jwk.kty))) {
+          throw 'A public JWK was given, but it wasn\'t a JWK, KJUR.RSAKey, KJUR.crypto.ECDSA, or string';
+        }
+      } else {
+        throw 'A public JWK was given, but it wasn\'t a JWK, KJUR.RSAKey, KJUR.crypto.ECDSA, or string';
+      }
+    }
+
     // Defaults
     headers.alg = (typeof headers.alg === 'string') ? headers.alg : 'RSA256';
     headers.typ = (typeof headers.typ === 'string') ? headers.typ : 'JWT';
     headers.kty = (typeof headers.kty === 'string') ? headers.kty : prvJwk.kty;
     headers.iat = Math.floor(Date.now() / 1000);
 
-    //Convert keys if necessary
-    if (!(prvJwk instanceof KJUR.RSAKey) && !(prvJwk instanceof KJUR.crypto.DSA) && !(prvJwk instanceof KJUR.crypto.ECDSA)) {
-      prvJwk = KJUR.KEYUTIL.getKey(prvJwk)
-    }
-    if (headers.jwk && !(headers.jwk instanceof KJUR.RSAKey) && !(headers.jwk instanceof KJUR.crypto.DSA) && !(headers.jwk instanceof KJUR.crypto.ECDSA)) {
-      headers.jwk = KJUR.KEYUTIL.getKey(headers.jwk)
-    }
-
-    var assertion = KJUR.jws.JWS.sign(headers.alg, JSON.stringify(headers), data, prvJwk);
+    /*
+      For the KJUR.jws.JWS.sign() function:
+         - headers.jwk need to be in jwk format (NOT RSAKey) but is optional
+         - prvJwk needs to be in RSAKey format, this is done below with `KJUR.KEYUTIL.getKey(prvJwk)`
+    */
+    var assertion = KJUR.jws.JWS.sign(headers.alg, JSON.stringify(headers), data, KJUR.KEYUTIL.getKey(prvJwk));
     if (!assertion) throw 'Signature could not be generated with given inputs';
 
     if (inputAudit.signatures) {

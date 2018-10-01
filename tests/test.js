@@ -55,5 +55,23 @@ describe('trellisfw-signatures', function() {
         });
       });
     });
+    it('Keys are JWTs', function() {
+      const publicKey = readFile(path.join(__dirname, '/keys/public.pub'), 'utf8').then((key) => {
+        return KJUR.KEYUTIL.getJWKFromKey(KJUR.KEYUTIL.getKey(key));
+      });
+      const privateKey = readFile(path.join(__dirname, '/keys/private.pem'), 'utf8').then((key) => {
+        return KJUR.KEYUTIL.getJWKFromKey(KJUR.KEYUTIL.getKey(key));
+      });;
+      return Promise.join(unsignedAudit, publicKey, privateKey, keyInfo, (unsignedAudit, publicKey, privateKey, {kid, alg, kty, typ, jku}) => {
+        const headers = { kid, alg, kty, typ, jku, jwk: publicKey}
+        var audit = JSON.parse(unsignedAudit);
+        return tSig.generate(audit, privateKey, headers).then((signatures) => {
+          //Audit should now have signatures
+          expect(audit).to.have.property('signatures');
+          expect(audit.signatures).to.be.an('array');
+          expect(audit.signatures).to.have.lengthOf(1);
+        });
+      });
+    });
   });
 });
