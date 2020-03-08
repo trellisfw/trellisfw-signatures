@@ -16,7 +16,7 @@ const unsigned = require('./unsigned.json');
 describe('trellisfw-signatures', function() {
 
   before(async () => {
-    keys = await oadacerts.createKey();
+    keys = await oadacerts.keys.create();
   });
 
   describe('#hashJSON', function() {

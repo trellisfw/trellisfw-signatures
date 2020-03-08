@@ -10,6 +10,7 @@ const trace = debug('trellisfw-signatures:trace');
 module.exports = {
   sign,
   verify,
+  keys: oadacerts.keys, // expose higher up for convenience
   serializeJSON,
   hashJSON,
 }
