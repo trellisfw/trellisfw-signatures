@@ -1,208 +1,122 @@
 'use strict'
+const pkg = require('./package.json');
 const sha256 = require('js-sha256');
-const KJUR = require('jsrsasign');
+const oadacerts = require('@oada/oada-certs');
 const _ = require('lodash');
-const Promise = require('bluebird');
-const agent = require('superagent-promise')(require('superagent'), Promise);
-var trustedList;
-var lastTrustedListRetrieved;
+const debug = require('debug');
+const warn = debug('trellisfw-signatures:warn');
+const trace = debug('trellisfw-signatures:trace');
 
 module.exports = {
-  generate: generate,
-  verify: verify,
+  sign,
+  verify,
+  serializeJSON,
+  hashJSON,
 }
 
-//This function compares the hash given in the most recent signature's JWT payload to a
-//reconstructed hash of the audit. The most recent signature (and also the signatures
-//key if only one signature was present) should be omitted in the reconstructed hash.
-//If the hashes match, we can conclude that content hasn't been modified.
-function _isContentModified(auditIn) {
-  var audit = _.cloneDeep(auditIn);
-  if (!audit.signatures) return false
-  if (audit.signatures.length === 0) return false
+const TRELLIS_TRUSTED_LIST = 'https://raw.githubusercontent.com/trellisfw/trusted-list/master/keys.json';
+const OADA_CERTS_OPTIONS = {
+  additionalTrustedListURIs: [ TRELLIS_TRUSTED_LIST ],
+  disableDefaultTrustedListURI: true,  // don't use the OADA built-in one for these
+};
 
-  //Get the decoded hashed audit in the signature JWT
-  var auditJwt = audit.signatures[audit.signatures.length-1]
-  var decoded = KJUR.jws.JWS.readSafeJSONString(KJUR.b64utoutf8(auditJwt.split(".")[1]));
-
+// Remove a signature from the list, or remove signatures key entirely if empty after pop
+function popSignature(testobj) {
+  testobj = _.cloneDeep(testobj);
+  if (!testobj || !testobj.signatures || testobj.signatures.length < 1) return testobj;
+  trace('popSignature: before pop, testobj.signatures = ', testobj.signatures);
   // Remove the last signature in the signatures key array for reconstruction.
-  if (audit.signatures.length === 1) {
-    delete audit.signatures;
-  } else audit.signatures.pop();
-
-  //Serialize and hash the given audit.
-  var reconstructedAudit = _serialize(audit);
-  reconstructedAudit = sha256(reconstructedAudit);
-
-  // Now compare
-  return (decoded.hash !== reconstructedAudit)
+  testobj.signatures.pop();
+  if (testobj.signatures.length < 1) {
+    delete testobj.signatures;
+  }
+  trace('popSignature: after pop, testobj.signatures = ', testobj.signatures);
+  return testobj;
 }
 
-// This function reconstructs the headers for verification using KJUR. KJUR wants alg to be
-// an array for some reason even though generating the JWT with alg as an array does not work.
-function _isVerified(auditJwt, headersIn, jwk) {
-  var headers = _.cloneDeep(headersIn);
-  var pubKey = KJUR.KEYUTIL.getKey(jwk);
-  if (headers.alg) headers.alg = [headers.alg]
-  if (headers.typ) headers.typ = [headers.typ]
-  if (headers.iss) headers.iss = [headers.iss]
-  if (headers.sub) headers.sub = [headers.sub]
-  if (headers.aud) headers.aud = [headers.aud]
-  if (headers.kty) headers.kty = [headers.kty]
-  return KJUR.jws.JWS.verifyJWT(auditJwt, pubKey, headers);
+// Adds a signature to the list of existing signatures, or adds the signatures
+// list if this is the first one.
+function pushSignature(testobj, sig) {
+  testobj = _.cloneDeep(testobj);
+  if (!testobj) return testobj;
+  if (!testobj.signatures) testobj.signatures = [];
+  testobj.signatures.push(sig);
+  return testobj;
 }
 
-function _isSignerTrusted(jwkHash) {
-  if (!jwkHash) return false // For some reason, no hash of the key was included. Can't check. Don't trust!
-  return (trustedList[jwkHash]) ? true : false;
-}
 
-function _getJwkFromHeaders(headers) {
-  return Promise.try(() => {
-    //Handle JWK. The audit contained a JWK that can be directly used for verification
-    if (headers.jwk) return headers.jwk;
-    //Handle JKU. The audit contained a JKU, which is a URL to a JWK set. An accompanying
-    //KID is needed in the headers to look up the particular JWK on the JKU.
-    else if (headers.jku) {
-      return agent('GET', headers.jku)
-      .end()
-      .then((jkuRes) => {
-        var keySet = JSON.parse(jkuRes.text);
-        var jwk;
-        keySet.keys.forEach(function(key) {
-          if (key.kid === headers.kid) {
-            return key
-          }
-        })
-        return null;//No matching KID found in the JKU keyset!
-      })
-    } else return null; //Niether a JKU nor a JWK were supplied.
-  })
-}
-
-// Initialize the trusted list or redownload it if its over a day old.
-function _fetchTrustedList() {
-  return Promise.try(() => {
-    if (!trustedList || (lastTrustedListRetrieved < Date.now()-864e5)) {
-      return agent('GET', 'https://raw.githubusercontent.com/trellisfw/trusted-list/master/keys.json')
-      .end()
-      .then((res) => {
-        //Set the trustedList global variables so they do not to be requested on subsequent verifications (within 24 hours)
-        lastTrustedListRetrieved = Date.now()
-        return trustedList = JSON.parse(res.text)
-      })
-    } else return trustedList
-  })
-}
-
-// This function verifies the given audit. The audit should contain the public key source
+// This function verifies the given object. The object's signature should contain the public key source
 // necessary to verify itself (either JWK or JKU).
-function verify(audit, options) {
-  return Promise.try(() => {
-    // Check that a signature is present and parse out the given JWT headers
-    if (!audit.signatures) throw new Error('Audit has no signatures to be verified.')
-    if (audit.signatures.length === 0) throw new Error('Audit has no signatures.')
-    var auditJwt = audit.signatures[audit.signatures.length-1]
-    var headers = KJUR.jws.JWS.readSafeJSONString(KJUR.b64utoutf8(auditJwt.split(".")[0]))
-    if (!headers) throw new Error('Malformed signature (JWT headers couldn\'t be parsed).')
-    // Perform verification against the trusted list.
-    return _fetchTrustedList().then(() => {
-      return _getJwkFromHeaders(headers).then((jwk) => {
-        if (!jwk) throw new Error('A JWK or JKU must be included to verify the audit. A JKU requires an accompanying KID in the headers to look up the particular JWK.')
-        //TODO: need some function that tests whether the JWK is generally a valid JWK thingy. The test on jwk.n is sort of doing this.
-        if (!_isSignerTrusted(jwk.n) && !(_.get(options, 'allowUntrusted') === true)) throw new Error('Audit signature is valid. The signer is not on the trusted list.') // Its not on the trusted list. Don't trust!
-        if (!_isVerified(auditJwt, headers, jwk)) throw new Error('Audit signature cannot be verified.')
-        if (_isContentModified(audit)) throw new Error('Audit signature is valid. Signer is trusted. The Audit contents have been modified.')
-        return true
-      })
-    })
-  })
+// Returns: { trusted, valid, unchanged, payload, header, details, original }
+// - trusted: true|false - is signer considered trusted
+// - valid: true|false - is the signature itself a valid JWT that can be decoded and the signature matches
+// - unchanged: true|false - have the contents been modified since signing
+// - payload: the payload of the signature
+// - original: the original JSON object before signing (i.e. with the latest signature popped off)
+// - details: if verification fails, look here for an array of helpful debugging messages about the process
+async function verify(testobj, options) {
+  options = options || {};
+  // Check that a signature is present and parse out the given JWT headers
+  if (!testobj) throw new Error('No object passed.')
+  if (!testobj.signatures) throw new Error('Object has no signatures to be verified.')
+  if (testobj.signatures.length === 0) throw new Error('Object has no signatures.')
+  const sig = testobj.signatures[testobj.signatures.length-1]
+
+  const result = await oadacerts.validate(sig,_.merge(options, OADA_CERTS_OPTIONS));
+  trace('verify: result from oadacerts = ', result);
+  const { trusted, valid, payload, header, details } = result;
+  const original = popSignature(testobj);
+
+  let unchanged = false;
+  if (payload && payload.hashinfo && payload.hashinfo.hash) {
+    const ohashinfo = hashJSON(original);
+    trace('verify: checking unchanged, payload hash = ', payload.hashinfo.hash, ', original hash = ', ohashinfo.hash);
+    unchanged = (payload.hashinfo.hash === ohashinfo.hash);
+  }
+
+  return {trusted, valid, unchanged, payload, header, original, details};
 }
 
-//This function accepts an input audit along with the JWT headers necessary to
-//construct a JWT and appends an additional signature to the signatures key of
-//the audit.
-function generate(inputAudit, prvJwk, headers) {
-  return Promise.try(() => {
-    if (!prvJwk) throw 'Private key required to sign the audit.';
-    var data = _serialize(inputAudit);
-    if (!data) throw 'Audit could not be serialized.'
-    data = {hash: sha256(data)};
-    if (!data) throw 'Audit could not be hashed.'
+// This function accepts an input object along with any JWT headers necessary to
+// construct a JWT and appends an additional signature to the signatures key of
+// the object.  To be trusted, the public version of your private key must be on 
+// the trusted list, or a jku and kid where that public version of your private key can be
+// found must be in options.header.
+// Options: 
+// - signer: { name: 'name of signer', url: 'URL of signer homepage' }
+//   in the future, signer could be like an oada dynamic client certificate, signed by someone trusted
+// - type: 'transcription', 'original' -> type of signature
+// - header: header for the JWT, passed down to oada-certs.  Include things like jku, jwk, kid
+async function sign(original, prvJwk, options) {
+  if (!prvJwk) throw new Error('Private key as a JWK required to sign an object.');
+  options = options || {};
+  options.header = options.header || {};
+  if (options.headers) throw new Error('You passed options.headers, but I think you meant options.header');
 
-    if (!headers.jwk && !headers.jku) throw 'Either a public JWK key or a JKU must be included for downstream verification of the given private key.'
-    if (headers.jku && typeof headers.jku !== 'string') throw 'JKU given, but it wasn\'t a string.'
-    if (!headers.kid) throw 'KID header wasn\'t supplied.'
-    if (typeof headers.kid !== 'string') throw 'KID wasn\'t a string.'
+  const payload = { 
+    version: pkg.version,
+    iat: Math.floor(Date.now() / 1000),
+    hashinfo: hashJSON(original),
+  };
+  if (options.signer) payload.signer = options.signer;
+  if (options.type) payload.type = options.type;
 
-    //Convert prvJWK to JWK if necessary
-    if (prvJwk instanceof KJUR.RSAKey || prvJwk instanceof KJUR.crypto.ECDSA) {
-      //Get key from string or jwt
-      prvJwk = KJUR.KEYUTIL.getKey(prvJwk)
-    } else if (typeof prvJwk === 'string' || prvJwk instanceof String) {
-      //Get jwt from string
-      try {
-        prvJwk = KJUR.KEYUTIL.getJWKFromKey(KJUR.KEYUTIL.getKey(prvJwk));
-      } catch (err) {
-        throw 'A private JWK was given as a string, but could not be decoded.'
-      }
-    } else if (_.isObject(prvJwk)) {
-      //Simple JWK validation check, could use node-jwk JWK.fromObject for this
-      //See: https://github.com/HyperBrain/node-jwk#readme
-      if (!(_.has(prvJwk, 'kty')) || !(_.includes(['RSA', 'EC'], prvJwk.kty))) {
-        throw 'A private JWK was given, but it wasn\'t a JWK, KJUR.RSAKey, KJUR.crypto.ECDSA, or string';
-      }
-    } else {
-      throw 'A private JWK was given, but it wasn\'t a JWK, KJUR.RSAKey, KJUR.crypto.ECDSA, or string';
-    }
+  const sig = await oadacerts.sign(payload, prvJwk, options);
+  if (!sig) throw new Error('Signature could not be generated');
 
-    //Convert headers.jwk to JWK if necessary
-    if (headers.jwk) {
-      if (headers.jwk instanceof KJUR.RSAKey || headers.jwk instanceof KJUR.crypto.ECDSA) {
-        //Get jwt from key
-        headers.jwk = KJUR.KEYUTIL.getJWKFromKey(headers.jwk)
-      } else if (typeof headers.jwk === 'string' || headers.jwk instanceof String) {
-        //Get jwt from string
-        try {
-          headers.jwk = KJUR.KEYUTIL.getJWKFromKey(KJUR.KEYUTIL.getKey(headers.jwk));
-        } catch (err) {
-          throw 'A public JWK was given as a string, but could not be decoded.'
-        }
-      } else if (_.isObject(headers.jwk)) {
-        //Simple JWK validation check, could use node-jwk JWK.fromObject for this
-        //See: https://github.com/HyperBrain/node-jwk#readme
-        if (!(_.has(headers.jwk, 'kty')) || !(_.includes(['RSA', 'EC'], headers.jwk.kty))) {
-          throw 'A public JWK was given, but it wasn\'t a JWK, KJUR.RSAKey, KJUR.crypto.ECDSA, or string';
-        }
-      } else {
-        throw 'A public JWK was given, but it wasn\'t a JWK, KJUR.RSAKey, KJUR.crypto.ECDSA, or string';
-      }
-    }
-
-    // Defaults
-    headers.alg = (typeof headers.alg === 'string') ? headers.alg : 'RSA256';
-    headers.typ = (typeof headers.typ === 'string') ? headers.typ : 'JWT';
-    headers.kty = (typeof headers.kty === 'string') ? headers.kty : prvJwk.kty;
-    headers.iat = Math.floor(Date.now() / 1000);
-
-    /*
-      For the KJUR.jws.JWS.sign() function:
-         - headers.jwk need to be in jwk format (NOT RSAKey) but is optional
-         - prvJwk needs to be in RSAKey format, this is done below with `KJUR.KEYUTIL.getKey(prvJwk)`
-    */
-    var assertion = KJUR.jws.JWS.sign(headers.alg, JSON.stringify(headers), data, KJUR.KEYUTIL.getKey(prvJwk));
-    if (!assertion) throw 'Signature could not be generated with given inputs';
-
-    if (inputAudit.signatures) {
-      inputAudit.signatures.push(assertion);
-    } else inputAudit.signatures = [assertion];
-      return inputAudit.signatures;
-    })
+  return pushSignature(original, sig);
 }
 
-function _serialize(obj) {
+function serializeJSON(obj) {
 
-  if (typeof obj === 'number') throw new Error('You cannot serialize a number with a hashing function and expect it to work.  Use a string.');
+  if (typeof obj === 'number') {
+    const str = obj.toString();
+    if (str.match(/\./)) {
+      warn('You cannot serialize a floating point number with a hashing function and expect it to work consistently across all systems.  Use a string.');
+    }
+    // Otherwise, it's an int and it should serialize just fine.
+    return str;
+  }
   if (typeof obj === 'string') return '"'+obj+'"';
   if (typeof obj === 'boolean') return (obj ? 'true' : 'false');
   // Must be an array or object
@@ -217,9 +131,18 @@ function _serialize(obj) {
   return starttoken
     + _.reduce(keys, function(acc,k,index) {
       if (!isarray) acc += '"'+k+'":'; // if an object, put the key name here
-      acc += _serialize(obj[k]);
+      acc += serializeJSON(obj[k]);
       if (index < keys.length-1) acc += ',';
       return acc;
     },"")
     + endtoken;
+}
+
+function hashJSON(obj) {
+  const ser = serializeJSON(obj);
+  trace('hashJSON: serialized JSON string = ', ser, ' for object ', obj);
+  return {
+    alg: 'SHA256',
+    hash: sha256(ser),
+  };
 }
