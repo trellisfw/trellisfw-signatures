@@ -1,3 +1,6 @@
+require('core-js/stable');
+require('regenerator-runtime/runtime');
+
 const chai = require('chai');
 const Promise = require('bluebird');
 const readFile = Promise.promisify(require("fs").readFile);
