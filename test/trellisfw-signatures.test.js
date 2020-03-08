@@ -39,6 +39,23 @@ describe('trellisfw-signatures', function() {
       const hashinfo2 = tSig.hashJSON(obj2);
       expect(hashinfo1).to.deep.equal(hashinfo2);
     });
+
+    it('should omit OADA keys by default', () => {
+      const obj = { _id: 'theone', _meta: { _id: 'resources/theone/_meta', _rev: 1 }, _rev: 1, key1: 'val1' };
+      const hash1 = tSig.hashJSON(obj);
+      const obj2 = _.cloneDeep(obj);
+      delete obj2._id;
+      delete obj2._meta;
+      delete obj2._rev;
+      const hash2 = tSig.hashJSON(obj2);
+      expect(hash1).to.deep.equal(hash2);
+    });
+    it('should not omit OADA keys if option says no to', () => {
+      const obj = { _id: 'theone', _meta: { _id: 'resources/theone/_meta', _rev: 1 }, _rev: 1, key1: 'val1' };
+      const hash1 = tSig.hashJSON(obj, { keepOADAKeys: true });
+      const hash2 = tSig.hashJSON(obj, { keepOADAKeys: false });
+      expect(hash1).to.not.deep.equal(hash2);
+    });
   });
 
 

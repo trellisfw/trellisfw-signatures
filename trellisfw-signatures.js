@@ -138,7 +138,13 @@ function serializeJSON(obj) {
     + endtoken;
 }
 
-function hashJSON(obj) {
+// Options:
+// - keepOADAKeys: true|false, default: false.  Default gets rid of the OADA keys at top level of obj: _id, _meta, _rev
+function hashJSON(obj, options) {
+  options = options || {};
+  if (!options.keepOADAKeys) {
+    obj = _.omit(obj, ['_id', '_meta', '_rev']);
+  }
   const ser = serializeJSON(obj);
   trace('hashJSON: serialized JSON string = ', ser, ' for object ', obj);
   return {
