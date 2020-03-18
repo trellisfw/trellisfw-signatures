@@ -13,6 +13,7 @@ module.exports = {
   keys: oadacerts.keys, // expose higher up for convenience
   serializeJSON,
   hashJSON,
+  jose: oadacerts.jose, // expose node-jose library to make use of randomBytes and encode/decode
 }
 
 const TRELLIS_TRUSTED_LIST = 'https://raw.githubusercontent.com/trellisfw/trusted-list/master/keys.json';
