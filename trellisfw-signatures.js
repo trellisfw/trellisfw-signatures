@@ -89,17 +89,18 @@ async function verify(testobj, options) {
 //   in the future, signer could be like an oada dynamic client certificate, signed by someone trusted
 // - type: 'transcription', 'original' -> type of signature
 // - header: header for the JWT, passed down to oada-certs.  Include things like jku, jwk, kid
+// - payload: additional items to include in the JWT's payload.  This function will overwrite any version, iat, or hashinfo keys
 async function sign(original, prvJwk, options) {
   if (!prvJwk) throw new Error('Private key as a JWK required to sign an object.');
   options = options || {};
   options.header = options.header || {};
   if (options.headers) throw new Error('You passed options.headers, but I think you meant options.header');
+  options.payload = options.payload || {};
 
-  const payload = { 
-    version: pkg.version,
-    iat: Math.floor(Date.now() / 1000),
-    hashinfo: hashJSON(original),
-  };
+  const payload = options.payload;
+  payload.version: pkg.version,
+  payload.iat: Math.floor(Date.now() / 1000),
+  payload.hashinfo: hashJSON(original),
   if (options.signer) payload.signer = options.signer;
   if (options.type) payload.type = options.type;
 
