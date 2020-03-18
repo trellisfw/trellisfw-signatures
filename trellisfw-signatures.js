@@ -98,9 +98,9 @@ async function sign(original, prvJwk, options) {
   options.payload = options.payload || {};
 
   const payload = options.payload;
-  payload.version: pkg.version,
-  payload.iat: Math.floor(Date.now() / 1000),
-  payload.hashinfo: hashJSON(original),
+  payload.version = pkg.version;
+  payload.iat = Math.floor(Date.now() / 1000);
+  payload.hashinfo = hashJSON(original);
   if (options.signer) payload.signer = options.signer;
   if (options.type) payload.type = options.type;
 
