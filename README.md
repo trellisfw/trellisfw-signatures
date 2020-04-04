@@ -73,7 +73,7 @@ Returns { trusted, valid, unchanged, payload, messages }
 
 #### Parameters ####
 - `jsonobject`: an object with a signatures key that is an array with at least one JWT signature in it.
-- `options`: object with options to pass directly to [oada-certs](https://github.com/oada/oada-cerst) library.  
+- `options`: object with options to pass directly to [oada-certs](https://github.com/oada/oada-certs) library.  
    Please refer to the docuentation for oada-certs for details, but this can include things like alternate
    trusted lists, etc.  Please note that this library will always pre-prend the main Trellis
    trusted list onto the front of any additional trusted lists that are passed in options.
