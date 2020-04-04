@@ -9,7 +9,7 @@ npm install @trellisfw/signatures
 
 ## Require Usage ##
 ```javascript
-var tSignature = require('@trellisfw/signatures');
+const tsig = require('@trellisfw/signatures');
 const objToSign = {
   "hello": "world"
 };
@@ -17,22 +17,21 @@ const key = require('./jwkprivatekey.json');
 
 // Sign an object:
 try {
-  tSignature.sign(objToSign, key);
-  // This mutates objToSign by adding a `signatures` key as an array.
-  console.log('Successfully signed object.  Singed document = ', objToSign);
+  const signed = await tsig.sign(objToSign, key);
+  // returns a new copy of objToSign with signature added
+  console.log('Successfully signed object.  Signed document = ', signed);
 } catch(err ){
   console.log('Failed to sign object.  Error was: ", err);
 }
 
 // Verify the last (latest) signature in the signatures array on a signed object:
-const signedObj = objToSign; // mutated above to add signatures key
 try {
-  const { trusted, valid, payload, unchanged, messages } = tSignature.validate(signedObj);
+  const { trusted, valid, payload, unchanged, details } = await tsig.verify(signedObj);
   console.log('Was signature signed by a trusted key: ', trusted);
   console.log('Was signature a valid JWT according to the key used to sign it: ', valid);
   console.log('Was the document changed since the signature was applied: ', unchanged);
   console.log('The payload of the signature was: ', payload);
-  console.log('The library told us these things about the decoding process: ', messages);
+  console.log('The library told us these things about the decoding process: ', details);
 } catch(err) {
   console.log('Signature verification failed.');
 }
@@ -41,11 +40,14 @@ try {
 
 ## API ##
 
-### sign(jsonobject, key, headers) ###
-Generate a signed jsonobject with the given headers and the client's private key. The `sign` function appends a Json Web Token (JWT) to the jsonobject's `signatures` key.
+### _async_ `sign(jsonobject, privateJWK, headers)` ###
+Generate a signed `jsonobject` with the given headers and the client's private key. The `sign` function appends a Json Web Token (JWT) to the jsonobject's `signatures` key, or creates a signatures key if one is not there.
+
+You can generate a privateJWK with [https://github.com/oada/oada-certs], and the `keys` library from `oada-certs` is 
+exposed as `keys` in this library for convenience, so you can also use that to make keys.
 
 #### Parameters ####
-`jsonobject` *{Object}* Any JSON object, such as a food safety audit.
+`jsonobject` *{Object}* Any JSON object
 
 `key` *{JWK}* The key used to sign the audit, as a JWK.
 
@@ -56,9 +58,10 @@ JWK passed as the signing key, the one in the headers will override the
 one in the key.
 
 
-### validate(jsonobject,options)
+### _async_ `verify(jsonobject,options)`
 Determine if the last item in a jsonobject's signatures key is trusted, valid, and if the document
-itself is unchanged since the signature was applied.
+itself is unchanged since the signature was applied.  Options are passed to `oada-certs.validate`
+once the Trellis trusted list has been added.
 
 Returns { trusted, valid, unchanged, payload, messages }
 - `valid`: true if signature is a valid JWT and a public key is available to check it against.
@@ -74,5 +77,21 @@ Returns { trusted, valid, unchanged, payload, messages }
    Please refer to the docuentation for oada-certs for details, but this can include things like alternate
    trusted lists, etc.  Please note that this library will always pre-prend the main Trellis
    trusted list onto the front of any additional trusted lists that are passed in options.
+
+
+### serliaizeJSON(obj)
+Returns a consistent string representation for any JSON object by lexically sorting keys.
+
+### hashJSON(obj)
+Uses `serializeJSON` to convert `obj` to a string, removes any OADA-specific keys like `_id`, `_rev`, `_meta`,
+then hashes the resulting string.
+
+Returns `{ alg, hash }`
+
+### keys
+Exports `keys` `@oada/oada-certs` for convenience.
+
+### jose
+Exports `jose` from `@oada/oada-certs` for convenience.
 
 [trellisfw]: https://github.com/trellisfw/trellisfw-docs
